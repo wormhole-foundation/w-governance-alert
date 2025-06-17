@@ -1,11 +1,12 @@
 name: Test SSH to GCP VM
 
 on:
-  workflow_dispatch  # Lets you run this manually in the GitHub Actions tab
+  workflow_dispatch
 
 jobs:
   test-ssh:
     runs-on: ubuntu-latest
+    environment: Deploy Environment  
 
     steps:
       - name: Start SSH agent and add key
