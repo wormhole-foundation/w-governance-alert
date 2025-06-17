@@ -23,6 +23,9 @@ GUILD_ID = int(os.getenv('DISCORD_GUILD_ID', 0))
 PROPOSALS_CHANNEL_ID = int(os.getenv('PROPOSALS_CHANNEL_ID', 0))
 SYNC_INTERVAL_MINUTES = int(os.getenv('SYNC_INTERVAL_MINUTES', 5))  # Default to 5 minutes
 
+# Role ping configuration for new proposal announcements
+ROLE_PING_ID = os.getenv('ROLE_PING_ID')
+
 # Tally API configuration
 TALLY_API_URL = "https://api.tally.xyz/query"
 TALLY_API_KEY = os.getenv("TALLY_API_KEY")
@@ -152,6 +155,23 @@ async def update_proposal_embed(channel, message_id, proposal):
         return False
     except Exception as e:
         print(f"Error updating message {message_id}: {e}")
+        return False
+
+async def republish_proposal(channel, proposal):
+    """Re-publish a proposal when the original Discord message is not found"""
+    try:
+        embed = proposal.create_embed()
+        
+        message = await channel.send(embed=embed)
+            
+        # Update the database with the new message ID
+        proposal.discord_message_id = str(message.id)
+        save_announced_proposal(proposal)
+        
+        print(f"Successfully re-published proposal {proposal.id} with new message ID {message.id}")
+        return True
+    except Exception as e:
+        print(f"Error re-publishing proposal {proposal.id}: {e}")
         return False
 
 class TallyRateLimiter:
@@ -366,30 +386,21 @@ class TallyProposal:
 
     def get_vote_percentages(self):
         """Calculate vote percentages from vote stats"""
-        for_votes = 0
-        against_votes = 0
-        abstain_votes = 0
-        total_votes = 0
+        for_percent = 0
+        against_percent = 0
+        abstain_percent = 0
         
         for stat in self.vote_stats:
             vote_type = stat.get('type', '').upper()
-            votes = float(stat.get('votesCount', 0))
+            # Use Tally's pre-calculated percent field instead of manually calculating
+            percent = float(stat.get('percent', 0))
             
             if vote_type == 'FOR':
-                for_votes = votes
+                for_percent = percent
             elif vote_type == 'AGAINST':
-                against_votes = votes
+                against_percent = percent
             elif vote_type == 'ABSTAIN':
-                abstain_votes = votes
-            
-            total_votes += votes
-        
-        if total_votes == 0:
-            return 0, 0, 0
-        
-        for_percent = (for_votes / total_votes) * 100
-        against_percent = (against_votes / total_votes) * 100
-        abstain_percent = (abstain_votes / total_votes) * 100
+                abstain_percent = percent
         
         return for_percent, against_percent, abstain_percent
 
@@ -493,15 +504,20 @@ class TallyProposal:
         # Add voting progress
         for_percent, against_percent, abstain_percent = self.get_vote_percentages()
         
+        # Helper function to format percentages without unnecessary trailing zeros
+        def format_percentage(percent):
+            """Format percentage to remove trailing zeros and unnecessary decimal points"""
+            return f"{percent:.2f}".rstrip('0').rstrip('.')
+        
         # Create visual bars with 10 squares each
         def create_bar(percentage, filled_emoji):
             filled_count = round(percentage / 10)  # Each square represents 10%
             empty_count = 10 - filled_count
             return filled_emoji * filled_count + "⬜" * empty_count
         
-        voting_text = f"{create_bar(for_percent, '🟩')}  –  {for_percent:.1f}% FOR\n"
-        voting_text += f"{create_bar(against_percent, '🟥')}  –  {against_percent:.1f}% AGAINST\n"
-        voting_text += f"{create_bar(abstain_percent, '🟨')}  –  {abstain_percent:.1f}% ABSTAIN"
+        voting_text = f"{create_bar(for_percent, '🟩')}  –  {format_percentage(for_percent)}% FOR\n"
+        voting_text += f"{create_bar(against_percent, '🟥')}  –  {format_percentage(against_percent)}% AGAINST\n"
+        voting_text += f"{create_bar(abstain_percent, '🟨')}  –  {format_percentage(abstain_percent)}% ABSTAIN"
         
         embed.add_field(name="Voting", value=voting_text, inline=False)
 
@@ -579,7 +595,15 @@ async def check_new_proposals():
         print(f"Found {len(new_active_proposals)} new proposals that reached ACTIVE status to announce")
         for proposal in new_active_proposals:
             embed = proposal.create_embed()
-            message = await channel.send(embed=embed)
+            
+            # Send role ping message before embed if configured
+            if ROLE_PING_ID:
+                ping_message = f"<@&{ROLE_PING_ID}>, a new proposal is live"
+                message = await channel.send(ping_message, embed=embed, 
+                                           allowed_mentions=discord.AllowedMentions(roles=True))
+            else:
+                message = await channel.send(embed=embed)
+                
             proposal.discord_message_id = str(message.id)
             save_announced_proposal(proposal)  # Save with discord_message_id
             await asyncio.sleep(1)  # Small delay between messages
@@ -599,12 +623,18 @@ async def check_new_proposals():
                     update_proposal_sync_status(proposal.id, proposal.status)
                     synced_count += 1
                     print(f"Updated embed for proposal {proposal.id}")
+                elif not success:
+                    # If update failed, try re-publishing the proposal
+                    await republish_proposal(channel, proposal)
             elif sync_info['last_status'] != proposal.status:
                 # Status changed to final (e.g., CANCELED, DEFEATED, EXECUTED, etc.), update one last time
                 success = await update_proposal_embed(channel, sync_info['discord_message_id'], proposal)
                 if success:
                     update_proposal_sync_status(proposal.id, proposal.status)
                     print(f"Final update for proposal {proposal.id} - status changed to {proposal.status} (sync halted)")
+                elif not success:
+                    # If final update failed, try re-publishing the proposal
+                    await republish_proposal(channel, proposal)
 
     if synced_count > 0:
         print(f"Synced {synced_count} existing proposal embeds")
