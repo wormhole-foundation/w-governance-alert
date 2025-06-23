@@ -19,9 +19,26 @@ jobs:
       - name: Deploy to GCP VM
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.GCP_VM_USER }}@${{ secrets.GCP_VM_IP }} << 'EOF'
+            set -e  # Exit on error
+
+            echo "🔄 Changing to bot directory"
             cd ~/w-governance-alert
+
+            echo "📥 Pulling latest changes from main"
             git pull origin main
+
+            echo "🐍 Setting up Python virtual environment"
+            if [ ! -d "venv" ]; then
+              python3 -m venv venv
+            fi
+
+            echo "📦 Activating venv and installing requirements"
             source venv/bin/activate
+            pip install --upgrade pip
             pip install -r requirements.txt
+
+            echo "🚀 Restarting the bot service"
             sudo systemctl restart wgovbot
+
+            echo "✅ Deployment complete"
           EOF
