@@ -38,7 +38,7 @@ jobs:
             pip install -r requirements.txt
 
             echo "🚀 Restarting the bot service"
-            sudo systemctl restart wgovbot
+            sudo -n /bin/systemctl restart wgovbot.service
 
             echo "✅ Deployment complete"
           EOF
