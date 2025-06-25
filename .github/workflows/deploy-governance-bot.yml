@@ -6,8 +6,8 @@ on:
       - main
 
 permissions:
-  id-token: write  # Required for Workload Identity Federation
-  contents: read   # Required for actions/checkout
+  id-token: write
+  contents: read
 
 jobs:
   deploy:
@@ -39,18 +39,22 @@ jobs:
             --quiet \
             --command="
               set -e
-              echo 🔄 Changing to bot directory
-              cd /home/discordbot/w-governance-alert
-              echo 📥 Pulling latest changes from main
-              git checkout main
-              git pull origin main
-              echo 🐍 Setting up Python virtual environment
-              if [ ! -d 'venv' ]; then python3 -m venv venv; fi
-              echo 📦 Activating venv and installing requirements
-              source venv/bin/activate
-              pip install --upgrade pip
-              pip install -r requirements.txt
-              echo 🚀 Restarting bot service
-              sudo -n systemctl restart wgovbot.service
-              echo ✅ Deployment complete
+              echo 🔄 Switching to discordbot user
+              sudo -u discordbot -i bash << 'INNER_EOF'
+                set -e
+                echo 🔄 Changing to bot directory
+                cd ~/w-governance-alert
+                echo 📥 Pulling latest changes from main
+                git checkout main
+                git pull origin main
+                echo 🐍 Setting up Python virtual environment
+                if [ ! -d 'venv' ]; then python3 -m venv venv; fi
+                echo 📦 Activating venv and installing requirements
+                source venv/bin/activate
+                pip install --upgrade pip
+                pip install -r requirements.txt
+                echo 🚀 Restarting bot service
+                sudo -n systemctl restart wgovbot.service
+                echo ✅ Deployment complete
+              INNER_EOF
             "
