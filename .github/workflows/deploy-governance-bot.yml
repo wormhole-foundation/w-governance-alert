@@ -6,8 +6,8 @@ on:
       - main
 
 permissions:
-  id-token: write
-  contents: read
+  id-token: write  # Required for Workload Identity Federation
+  contents: read   # Required for actions/checkout
 
 jobs:
   deploy:
@@ -32,6 +32,7 @@ jobs:
           gcloud beta compute ssh github-deployer@governance-bot-v2 \
             --project=wormhole-community-infra \
             --zone=us-central1-a \
+            --quiet \
             --command="
               set -e
               echo 🔄 Changing to bot directory
