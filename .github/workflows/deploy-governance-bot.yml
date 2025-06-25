@@ -16,15 +16,21 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.CUSTOM_GCP_KEY }}
 
+      - name: Add host key to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.GCP_VM_IP }} >> ~/.ssh/known_hosts
+
       - name: Deploy to GCP VM
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.GCP_VM_USER }}@${{ secrets.GCP_VM_IP }} << 'EOF'
+          ssh ${{ secrets.GCP_VM_USER }}@${{ secrets.GCP_VM_IP }} << 'EOF'
             set -e  # Exit on error
 
             echo "🔄 Changing to bot directory"
             cd ~/w-governance-alert
 
             echo "📥 Pulling latest changes from main"
+            git checkout main
             git pull origin main
 
             echo "🐍 Setting up Python virtual environment"
