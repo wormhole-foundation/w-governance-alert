@@ -31,7 +31,7 @@ jobs:
         run: |
           gcloud compute ssh github-deployer@governance-bot-v2 \
             --project=wormhole-community-infra \
-            --zone=YOUR_ZONE \
+            --zone=us-central1-a \
             --command="
               set -e
               echo 🔄 Changing to bot directory
