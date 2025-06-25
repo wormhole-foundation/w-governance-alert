@@ -6,8 +6,8 @@ on:
       - main
 
 permissions:
-  id-token: write  # Required for Workload Identity Federation
-  contents: read   # Required for actions/checkout
+  id-token: write
+  contents: read
 
 jobs:
   deploy:
@@ -26,6 +26,10 @@ jobs:
 
       - name: Set up gcloud CLI
         uses: google-github-actions/setup-gcloud@v1
+
+      - name: Install gcloud beta component
+        run: |
+          gcloud components install beta --quiet
 
       - name: SSH into GCP VM and deploy bot
         run: |
