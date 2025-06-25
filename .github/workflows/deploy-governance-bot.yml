@@ -5,46 +5,44 @@ on:
     branches:
       - main
 
+permissions:
+  id-token: write  # Needed for Workload Identity Federation
+  contents: read
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: Deploy Environment
 
     steps:
-      - name: Start SSH agent and add key
-        uses: webfactory/ssh-agent@v0.9.0
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
         with:
-          ssh-private-key: ${{ secrets.CUSTOM_GCP_KEY }}
+          workload_identity_provider: 'projects/574118103601/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
+          service_account: 'github-deployer@wormhole-community-infra.iam.gserviceaccount.com'
 
-      - name: Add host key to known_hosts
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@v1
+
+      - name: SSH into GCP VM and deploy bot
         run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan -H ${{ secrets.GCP_VM_IP }} >> ~/.ssh/known_hosts
-
-      - name: Deploy to GCP VM
-        run: |
-          ssh ${{ secrets.GCP_VM_USER }}@${{ secrets.GCP_VM_IP }} << 'EOF'
-            set -e  # Exit on error
-
-            echo "🔄 Changing to bot directory"
-            cd ~/w-governance-alert
-
-            echo "📥 Pulling latest changes from main"
-            git checkout main
-            git pull origin main
-
-            echo "🐍 Setting up Python virtual environment"
-            if [ ! -d "venv" ]; then
-              python3 -m venv venv
-            fi
-
-            echo "📦 Activating venv and installing requirements"
-            source venv/bin/activate
-            pip install --upgrade pip
-            pip install -r requirements.txt
-
-            echo "🚀 Restarting the bot service"
-            sudo -n /bin/systemctl restart wgovbot.service
-
-            echo "✅ Deployment complete"
-          EOF
+          gcloud compute ssh github-deployer@YOUR_VM_NAME \
+            --project=wormhole-community-infra \
+            --zone=YOUR_ZONE \
+            --command="
+              set -e
+              echo 🔄 Changing to bot directory
+              cd ~/w-governance-alert
+              echo 📥 Pulling latest changes from main
+              git checkout main
+              git pull origin main
+              echo 🐍 Setting up Python virtual environment
+              if [ ! -d 'venv' ]; then python3 -m venv venv; fi
+              echo 📦 Activating venv and installing requirements
+              source venv/bin/activate
+              pip install --upgrade pip
+              pip install -r requirements.txt
+              echo 🚀 Restarting bot service
+              sudo -n systemctl restart wgovbot.service
+              echo ✅ Deployment complete
+            "
