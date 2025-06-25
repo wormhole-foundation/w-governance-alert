@@ -27,14 +27,9 @@ jobs:
       - name: Set up gcloud CLI
         uses: google-github-actions/setup-gcloud@v1
 
-      - name: Ensure gcloud beta component is installed
+      - name: Install gcloud beta component
         run: |
-          if ! gcloud components list --filter="Name:beta AND State.name:Installed" --format="value(Name)" | grep -q "beta"; then
-            echo "Installing gcloud beta component..."
-            gcloud components install beta --quiet
-          else
-            echo "✅ gcloud beta component is already installed"
-          fi
+          gcloud components install beta --quiet
 
       - name: SSH into GCP VM and deploy bot
         run: |
