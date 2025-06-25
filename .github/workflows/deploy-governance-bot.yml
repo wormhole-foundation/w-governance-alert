@@ -39,7 +39,7 @@ jobs:
             --quiet <<'EOF'
               set -e
               echo 🔄 Switching to discordbot user
-              sudo -u discordbot -i bash <<'INNER'
+              sudo -u discordbot -i bash -c '
                 set -e
                 echo 🔄 Changing to bot directory
                 cd ~/w-governance-alert
@@ -47,7 +47,7 @@ jobs:
                 git checkout main
                 git pull origin main
                 echo 🐍 Setting up Python virtual environment
-                if [ ! -d 'venv' ]; then python3 -m venv venv; fi
+                if [ ! -d "venv" ]; then python3 -m venv venv; fi
                 echo 📦 Activating venv and installing requirements
                 source venv/bin/activate
                 pip install --upgrade pip
@@ -55,5 +55,5 @@ jobs:
                 echo 🚀 Restarting bot service
                 sudo -n systemctl restart wgovbot.service
                 echo ✅ Deployment complete
-              INNER
+              '
           EOF
