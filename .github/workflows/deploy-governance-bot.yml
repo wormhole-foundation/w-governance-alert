@@ -40,7 +40,7 @@ jobs:
             --command="
               set -e
               echo 🔄 Switching to discordbot user
-              sudo -u discordbot -i bash << 'INNER_EOF'
+              sudo -u discordbot -i bash <<'INNER_EOF'
                 set -e
                 echo 🔄 Changing to bot directory
                 cd ~/w-governance-alert
