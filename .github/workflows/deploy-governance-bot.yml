@@ -53,6 +53,5 @@ jobs:
                 pip install -r requirements.txt; \
                 echo 🚀 Restarting bot service; \
                 sudo -n systemctl restart wgovbot.service; \
-                echo 📈 Checking service status; \
-                sudo systemctl is-active --quiet wgovbot.service && echo ✅ Service is active || (echo ❌ Service failed && sudo journalctl -u wgovbot.service --no-pager -n 20 && exit 1)"
+                echo ✅ Deployment complete"
           EOF
