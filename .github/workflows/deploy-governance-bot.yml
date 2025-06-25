@@ -27,31 +27,40 @@ jobs:
       - name: Set up gcloud CLI
         uses: google-github-actions/setup-gcloud@v1
 
-      - name: Install gcloud beta component
-        run: |
-          gcloud components install beta --quiet
-
       - name: SSH into GCP VM and deploy bot
         run: |
           gcloud beta compute ssh github-deployer@governance-bot-v2 \
             --project=wormhole-community-infra \
             --zone=us-central1-a \
-            --quiet <<'EOF'
-              set -e
+            --quiet \
+            --command='
               echo 🔄 Switching to discordbot user
-              sudo -u discordbot -i bash -c "set -e; \
-                echo 🔄 Changing to bot directory; \
-                cd ~/w-governance-alert; \
-                echo 📥 Pulling latest changes from main; \
-                git checkout main; \
-                git pull origin main; \
-                echo 🐍 Setting up Python virtual environment; \
-                if [ ! -d 'venv' ]; then python3 -m venv venv; fi; \
-                echo 📦 Activating venv and installing requirements; \
-                source venv/bin/activate; \
-                pip install --upgrade pip; \
-                pip install -r requirements.txt; \
-                echo 🚀 Restarting bot service; \
-                sudo -n systemctl restart wgovbot.service; \
-                echo ✅ Deployment complete"
-          EOF
+              sudo -u discordbot bash <<INNER
+                set -e
+                echo 🔄 Changing to bot directory
+                cd ~/w-governance-alert
+                echo 📥 Pulling latest changes from main
+                git checkout main
+                git pull origin main
+                echo 🐍 Setting up Python virtual environment
+                if [ ! -d "venv" ]; then python3 -m venv venv; fi
+                echo 📦 Activating venv and installing requirements
+                source venv/bin/activate
+                pip install --upgrade pip
+                pip install -r requirements.txt
+                echo 🚀 Restarting bot service
+                sudo -n systemctl restart wgovbot.service
+                echo ✅ Deployment complete
+              INNER
+            '
+
+      - name: Check bot service status
+        run: |
+          gcloud beta compute ssh github-deployer@governance-bot-v2 \
+            --project=wormhole-community-infra \
+            --zone=us-central1-a \
+            --quiet \
+            --command='
+              echo 🩺 Checking status of wgovbot.service
+              sudo systemctl status wgovbot.service --no-pager
+            '
