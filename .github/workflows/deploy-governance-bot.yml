@@ -6,8 +6,8 @@ on:
       - main
 
 permissions:
-  id-token: write
-  contents: read
+  id-token: write  # Required for Workload Identity Federation
+  contents: read   # Required for actions/checkout
 
 jobs:
   deploy:
@@ -40,7 +40,7 @@ jobs:
             --command="
               set -e
               echo 🔄 Changing to bot directory
-              cd ~/w-governance-alert
+              cd /home/discordbot/w-governance-alert
               echo 📥 Pulling latest changes from main
               git checkout main
               git pull origin main
